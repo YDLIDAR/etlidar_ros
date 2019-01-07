@@ -64,6 +64,8 @@
 
 #define MILLISECONDS_CONVERSION 1000
 #define MICROSECONDS_CONVERSION 1000000
+#define NANOECONDS_CONVERSION 1000000000
+
 
 /// Class to abstract socket communications in a cross platform manner.
 /// This class is designed
@@ -97,7 +99,7 @@ public:
     {
         struct timeval tmpTime;
         GET_CLOCK_COUNT(&tmpTime);
-        return ((tmpTime.tv_sec * MICROSECONDS_CONVERSION) + tmpTime.tv_usec);
+        return ((tmpTime.tv_sec * NANOECONDS_CONVERSION) + tmpTime.tv_usec*MILLISECONDS_CONVERSION);
     };
 
 private:
