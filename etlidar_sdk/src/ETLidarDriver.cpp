@@ -32,87 +32,57 @@
 #include <unistd.h>
 #include <errno.h>
 
-/* Headers from Exception */
-#include <DeviceException.h>
-
 using namespace ydlidar;
 
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // port defaults to 9000 if not provided.
-ETLidarDriver::ETLidarDriver(std::string lidarIP, int port) :
-    m_running(false),
-    m_callback(nullptr),
-    m_deviceIp(lidarIP),
-    m_port(port),
+ETLidarDriver::ETLidarDriver() :
+    isScanning(false),
+    isConnected(false),
+    offset_len(0),
+    m_deviceIp("192.168.0.11"),
+    m_port(9000),
     m_sampleRate(20000)
 {
 
     socket_data.SetSocketType(CSimpleSocket::SocketTypeUdp);
     socket_cmd.SetConnectTimeout(DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_CONNECT_TIMEOUT_USEC);
-
-    if(!configPortConnect(m_deviceIp.c_str(), m_port)) {
-        throw DeviceException(socket_cmd.DescribeError());
-    }
-
-    lidarConfig config = getScanCfg();
-    //config.laser_en = 1;
-    //setScanCfg(config);
-
-    if(!dataPortConnect(config.deviceIp, config.dataRecvPort)) {
-        throw DeviceException(socket_data.DescribeError());
-    }
+    global_scan_data.data.clear();
 }
-
 
 /////////////////////////////////////////////////////////////////////////////////////////
-void ETLidarDriver::_ThreadFunc()
+ETLidarDriver::~ETLidarDriver()
 {
-    lidarData scandata;
-    int timeout = 0;
-    startMeasure();
-    printf("[ETLIDAR INFO] Now ETLIDAR is scanning ......\n");
-    while (m_running) {
-        try {
-            lidarData local_data;
-            getScanData(local_data);
-            if(local_data.headFrameFlag) {
-                if(m_callback&&scandata.data.size()) {
-                  m_callback(scandata);
-                }
-                scandata.data.clear();
-                scandata = local_data;
-                scandata.system_timestamp = local_data.system_timestamp - 1e9/m_sampleRate*local_data.data.size();
-            } else {
-                scandata.scan_time += local_data.scan_time;
-                scandata.data.insert( scandata.data.end(), local_data.data.begin(),  local_data.data.end());
-            }
-            timeout = 0;
-        }catch ( TimeoutException& e) {
-            timeout++;
-            if(timeout > 5) {
-                m_running = false;
-                throw DeviceException(e.what());
-            } else {
-                continue;
-            }
-
-        } catch (CorruptedDataException& e) {
-            fprintf(stderr, "scan data parse error: %s\n", e.what());
-            fflush(stderr);
-            continue;
-        }catch (DeviceException& e) {
-            m_running = false;
-            throw DeviceException(e.what());
-        } catch (...) {
-            m_running = false;
-            throw DeviceException("Unkown error......");
-        }
-
-    }
-    stopMeasure();
+   disconnect();
 }
 
+result_t ETLidarDriver::connect(const std::string &ip_address, uint32_t port) {
+  m_deviceIp = ip_address;
+  m_port = port;
+  isConnected = false;
+  if(!configPortConnect(m_deviceIp.c_str(), m_port)) {
+    ydlidar::console.error("%s", socket_cmd.DescribeError());
+    return RESULT_FAIL;
+  }
+
+  lidarConfig config = getScanCfg();
+  if(!dataPortConnect(config.deviceIp, config.dataRecvPort)) {
+    if(socket_cmd.IsSocketValid()) {
+        stopMeasure();
+    }
+    socket_cmd.Close();
+    ydlidar::console.error("%s", socket_data.DescribeError());    
+    return RESULT_FAIL;
+  }
+  m_config = config;
+  isConnected = true;
+  return RESULT_OK;
+}
+
+bool ETLidarDriver::isconnected() const {
+  return isConnected;
+}
 
 bool ETLidarDriver::configPortConnect(const char* lidarIP, int tcpPort) {
 
@@ -130,12 +100,67 @@ bool ETLidarDriver::configPortConnect(const char* lidarIP, int tcpPort) {
 }
 
 void ETLidarDriver::disconnect() {
-    m_running = false;
-    if(socket_cmd.IsSocketValid()) {
-        stopMeasure();
+  disableDataGrabbing();
+  isScanning = false;
+  if(socket_cmd.IsSocketValid()) {
+      stopMeasure();
+  }
+  stop();
+  socket_cmd.Close();
+  socket_data.Close();
+    
+}
+
+result_t ETLidarDriver::startScan(uint32_t timeout) {
+  result_t ans;
+
+  if (!isConnected) {
+    return RESULT_FAIL;
+  }
+
+  if (isScanning) {
+    return RESULT_OK;
+  }
+  stop();
+  {
+    ScopedLocker l(_lock);
+    bool ret = startMeasure();
+    if (!ret) {
+      startMeasure();
     }
-    socket_cmd.Close();
-    socket_data.Close();
+    if(!ret) {
+      return RESULT_FAIL;
+    }
+    ans = this->createThread();
+    return ans;
+  }
+  fprintf(stdout,"Current Lidar is Scanning....\n");
+  fflush(stdout);
+  return RESULT_OK;
+}
+
+bool ETLidarDriver::isscanning() const {
+  return isScanning;
+}
+
+result_t ETLidarDriver::stop() {
+  ScopedLocker l(_lock);
+  disableDataGrabbing();
+  bool ret = stopMeasure();
+  if(!ret) {
+    stopMeasure();
+  }
+  return RESULT_OK;
+}
+
+result_t ETLidarDriver::createThread() {
+  _thread = CLASS_THREAD(ETLidarDriver, cacheScanData);
+  if (_thread.getHandle() == 0) {
+    isScanning = false;
+    return RESULT_FAIL;
+  }
+  isScanning = true;
+  return RESULT_OK;
 }
 
 
@@ -192,6 +217,7 @@ bool ETLidarDriver::stopMeasure() {
 lidarConfig ETLidarDriver::getScanCfg() {
     lidarConfig cfg;
 
+    ScopedLocker l(_lock);
     char* result = configMessage(valName(cfg.laser_en));
     if( result != NULL) {
         cfg.laser_en = atoi(result);
@@ -260,6 +286,7 @@ lidarConfig ETLidarDriver::getScanCfg() {
 
 void ETLidarDriver::setScanCfg(const lidarConfig& config) {
     char str[32];
+    ScopedLocker l(_lock);
 
     _itoa(config.laser_en, str, 10);
     configMessage(valName(config.laser_en), str);
@@ -303,12 +330,105 @@ bool ETLidarDriver::dataPortConnect(const char* lidarIP, int localPort) {
             socket_data.SetReceiveTimeout(5,0);
         }
     }
-    if(lidarIP) {
-        //printf("ydlidar device ip: %s\n", lidarIP);
-        //fflush(stdout);
-    }
     return socket_data.IsSocketValid();
 }
+
+void ETLidarDriver::disableDataGrabbing() {
+  {
+    if (isScanning) {
+      isScanning = false;
+      _dataEvent.set();
+    }
+  }
+  _thread.join();
+}
+
+
+result_t ETLidarDriver::grabScanData(lidarData &scan, uint32_t timeout) {
+  switch (_dataEvent.wait(timeout)) {
+    case Event::EVENT_TIMEOUT:
+      return RESULT_TIMEOUT;
+    case Event::EVENT_OK: {
+      if (global_scan_data.data.size() == 0) {
+        return RESULT_FAIL;
+      }
+      ScopedLocker l(_lock);
+      scan = global_scan_data;
+      global_scan_data.data.clear();
+    }
+
+    return RESULT_OK;
+    default:
+      return RESULT_FAIL;
+    }
+
+}
+
+
+int ETLidarDriver::cacheScanData() {
+
+  lidarData scandata;
+  int timeout = 0;
+  scandata.data.clear();
+  while (isScanning) {
+      try {
+          lidarData local_data;
+          int size = getScanData(local_data);
+          if (size > 0) {
+            if(local_data.headFrameFlag) {
+                if(scandata.data.size()) {
+                  if(scandata.headFrameFlag) {
+                    double angle_diff = m_config.fov_end - m_config.fov_start;
+                    if(angle_diff > 0) {
+                        double echo_angle = angle_diff/scandata.data.size();
+                        offset_len = (360-angle_diff)/echo_angle;
+                    }
+                    scandata.scan_time += 1e9/m_sampleRate*offset_len;
+                    _lock.lock();//timeout lock, wait resource copy
+                    global_scan_data = scandata;
+                    _dataEvent.set();
+                    _lock.unlock();
+                  }
+                }
+                scandata.data.clear();
+                scandata = local_data;
+                scandata.system_timestamp = local_data.system_timestamp - 1e9/m_sampleRate*local_data.data.size();
+            } else {
+                scandata.scan_time += local_data.scan_time;
+                scandata.data.insert( scandata.data.end(), local_data.data.begin(),  local_data.data.end());
+            }
+          } else {
+            fprintf(stderr, "Failed to get ScanData[%d]\n", size);
+            fflush(stderr);
+          }
+          timeout = 0;
+      }catch ( TimeoutException& e) {
+          timeout++;
+          fprintf(stderr, "timeout[%d]:%s\n", timeout, e.what());
+          fflush(stderr);
+          if(timeout > DEFAULT_TIMEOUT_COUNT) {
+              isScanning = false;
+          } else {
+              continue;
+          }
+
+      } catch (CorruptedDataException& e) {
+          fprintf(stderr, "scan data parse error: %s\n", e.what());
+          fflush(stderr);
+          continue;
+      }catch (DeviceException& e) {
+          fprintf(stderr, "%s\n", e.what());
+          fflush(stderr);
+          isScanning = false;
+      } catch (...) {
+          isScanning = false;
+      }
+  }
+  fprintf(stdout,"scanning thread exiting....\n");
+  fflush(stdout);
+  stop();
+}
+
 
 int ETLidarDriver::getScanData(lidarData& data) {
 
@@ -409,19 +529,4 @@ int ETLidarDriver::getScanData(lidarData& data) {
 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-ETLidarDriver::~ETLidarDriver()
-{
-    m_running = false;
-    if( m_callbackThread.joinable() ) {
-        m_callbackThread.join();
-    }
-}
 
-/////////////////////////////////////////////////////////////////////////////////////////
-void ETLidarDriver::RegisterLIDARDataCallback(LIDARDriverDataCallback callback)
-{
-    m_callback = callback;
-    m_running = true;
-    m_callbackThread = std::thread( &ETLidarDriver::_ThreadFunc, this );
-}

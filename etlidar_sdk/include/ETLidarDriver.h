@@ -28,18 +28,19 @@
 #pragma once
 
 /* Header file to enable threading and ergo callback */
-#include <thread>
-
-/* Header file to make it in image defined by HAL */
-#include <LIDAR/LIDARDriverInterface.h>
-
+#include "thread.h"
+#include "locker.h"
+#include "etlidar_protocol.h"
+#include "PassiveSocket.h"
+#include "SimpleSocket.h"
+#include <vector>
 /* Header files for socket variable */
-#include <Sockets/PassiveSocket.h>
-#include <Sockets/ActiveSocket.h>
+#include "DeviceException.h"
+#include "Console.h"
 
 namespace ydlidar {
 
-class ETLidarDriver : public LIDARDriverInterface
+class ETLidarDriver
 {
 public:
     /**
@@ -47,21 +48,58 @@ public:
      * @param lidarIP
      * @param port
      */
-    explicit ETLidarDriver(std::string lidarIP, int port=9000);
+    explicit ETLidarDriver();
 
     ~ETLidarDriver();
+    
     /**
-     * @brief RegisterLIDARDataCallback
-     * @param callback
+     * @brief connect
+     * @param ip_address
+     * @param port
+     * @return 
      */
-    void RegisterLIDARDataCallback(LIDARDriverDataCallback callback);
+      
+    result_t connect(const std::string &ip_address, uint32_t port = 9000);
+
+    /**
+     * @brief isconnected
+     * @return
+     */
+    bool isconnected() const;
+    /**
+    * @brief Disconnect from ETLidar device.
+    */
+    void disconnect();
+
+    /**
+     * @brief startScan
+     * @param timeout
+     * @return
+     */
+    result_t startScan( uint32_t timeout = DEFAULT_TIMEOUT) ;
+
+    /**
+     * @brief isscanning
+     * @return
+     */
+    bool isscanning() const;
+
+    /**
+     * @brief stop
+     * @return
+     */
+    result_t stop();
+    
+    /**
+     * @brief grabScanData
+     * @param scan
+     * @param timeout
+     * @return
+     */
+    result_t grabScanData(lidarData& scan, uint32_t timeout = DEFAULT_TIMEOUT) ;
+
 
 private:
-    /**
-     * @brief _ThreadFunc
-     */
-    void _ThreadFunc();
-
     /**
     * @brief Connect config port to ETLidar.
     * @param remote IP & port.
@@ -71,11 +109,6 @@ private:
     * @brief Disconnect from ETLidar device.
     */
     char* configMessage(const char* descriptor, char* value = NULL);
-
-    /**
-    * @brief Disconnect from ETLidar device.
-    */
-    void disconnect();
 
     /**
     * @brief Start measurements.
@@ -108,17 +141,43 @@ private:
     bool dataPortConnect(const char* lidarIP, int localPort = 8000);
 
     /**
+     * @brief createThread
+     * @return
+     */
+    result_t createThread();
+
+    /**
+     * @brief disableDataGrabbing
+     */
+    void disableDataGrabbing();
+    /**
     * @brief Receive scan message.
     *
     * @param data pointer to lidarData buffer structure.
     */
     int getScanData(lidarData& data);
 
+    /**
+    * @brief parsing scan \n
+    */
+    int cacheScanData();
 private:
     /* Variable for LIDAR compatibility */
-    bool                      m_running;
-    std::thread               m_callbackThread;
-    LIDARDriverDataCallback   m_callback;
+    bool            isScanning;
+    bool            isConnected;
+    Event          	_dataEvent;			 ///<
+    Locker         	_lock;				///<
+    Thread 	       	_thread;				///<
+
+    lidarData       global_scan_data;
+    lidarConfig     m_config;
+    size_t          offset_len;
+
+    enum {
+       DEFAULT_TIMEOUT 	= 2000,    /**< 默认超时时间. */
+       DEFAULT_TIMEOUT_COUNT = 10,
+     };
+
 
     /* ETLidar specific Variables */
     std::string               m_deviceIp;

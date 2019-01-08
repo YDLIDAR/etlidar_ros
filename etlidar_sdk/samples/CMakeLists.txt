@@ -24,13 +24,24 @@
 #*----------------------------------------------------------------------------*
 #*                                                                            *
 #*****************************************************************************/
+cmake_minimum_required(VERSION 2.8)
+PROJECT(etlidar_test)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+add_definitions(-std=c++11) # Use C++11
 
-include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
+#Include directories
+INCLUDE_DIRECTORIES(
+    ${CMAKE_BINARY_DIR}
+     ${CMAKE_SOURCE_DIR}
+     ${CMAKE_SOURCE_DIR}/../
+     ${CMAKE_CURRENT_BINARY_DIR}
+)
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-subdirlist(SUBDIRS ${CMAKE_CURRENT_SOURCE_DIR})
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
+ADD_EXECUTABLE(${PROJECT_NAME} example.cpp)
 
-foreach(subdir ${SUBDIRS})
-    include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/${subdir} )
+# Add the required libraries for linking:
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} etlidar_driver)
+LINK_DIRECTORIES(CMAKE_BINARY_DIR)
 
-  add_subdirectory(${subdir})
-endforeach()

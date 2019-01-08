@@ -14,8 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 set(SDK_PATH "./etlidar_sdk/")
 
 FILE(GLOB SDK_SRC 
-  "${SDK_PATH}/LIDAR/Drivers/ETLidar/*.cpp"
-  "${SDK_PATH}/Sockets/*.cpp"
+  "${SDK_PATH}/src/*.cpp"
 )
 
 catkin_package()
@@ -23,10 +22,8 @@ catkin_package()
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${SDK_PATH}
-  ${SDK_PATH}/LIDAR
-  ${SDK_PATH}/LIDAR/Drivers
-  ${SDK_PATH}/LIDAR/Drivers/ETLidar
-  ${SDK_PATH}/Sockets
+  ${SDK_PATH}/include
+  ${SDK_PATH}/src
 )
 
 add_executable(etlidar_node src/etlidar_node.cpp  ${SDK_SRC})

@@ -8,7 +8,7 @@ Introduction
 
 ETLIDAR(https://www.ydlidar.com/) series is a set of high-performance and low-cost TOF LIDAR sensors, which is the perfect sensor of 2D SLAM, 3D reconstruction, multi-touch, and safety applications.
 
-If you are using ROS (Robot Operating System), please use our open-source [ROS Driver]( https://github.com/yangfuyuan/etlidar_ros) .
+If you are using ROS (Robot Operating System), please use our open-source [ROS Driver]( https://github.com/ydlidar/etlidar_ros) .
 
 Release Notes
 -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -19,7 +19,7 @@ Release Notes
 How to build ETLIDAR SDK samples
 -------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    $ git clone https://github.com/yangfuyuan/etlidar_sdk
+    $ git clone https://github.com/ydlidar/etlidar_sdk
 
     $ cd etlidar_sdk
 
@@ -62,9 +62,17 @@ How to run ETLIDAR SDK samples
 linux:
 
     $ ./ydlidar_test
+    Please enter the lidar IP:192.168.0.11
+    Please enter the lidar port:9000
+    [YDLidar]: SDK Version: 1.0
+    [YDLidar]: LIDAR Version: 
 windows:
 
     $ ydlidar_test.exe
+    Please enter the lidar IP:192.168.0.11
+    Please enter the lidar port:9000
+    [YDLidar]: SDK Version: 1.0
+    [YDLidar]: LIDAR Version: 
 
 Data structure
 -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -107,11 +115,10 @@ data structure:
 		* @brief system time.
 		*/
 		uint64_t system_timestamp;
-
-    		/**
-     		* @brief scan_time
-     		*/
-    		uint64_t scan_time;
+		/**
+		* @brief scan_time
+		*/
+		uint64_t scan_time;
 	} lidarData;
 
 example parsing:
@@ -147,40 +154,9 @@ If you want to learn from code examples, take a look at the examples in the
 
 
 ### Include Header
-	#include <LIDAR/LIDARDevice.h>
+	#include "ETLidarDriver.h"
 	#include <config.h>
-	
-	#include <thread>
-	#include <chrono>
-	
 	#define DEVICE_IP "192.168.0.11"
-
-### Callback
-
-```c++
-      void LaserScanCallback(const ydlidar::lidarData& scan) {
-
-          std::cout<< "received scan size: "<< scan.data.size()<<std::endl;
-
-    	  std::cout<< "scan   system time: "<< scan.system_timestamp<<std::endl;
-
-    	  std::cout<< "scan     self time: "<< scan.self_timestamp<<std::endl;
-
-         for(size_t i =0; i < scan.data.size(); i++) {
-
-      		// current angle
-      		float angle = scan.data[i].angle ;// radian format
-
-     		//current distance
-    		float angle = scan.data[i].range ;//meters
-
-      		//current intensity
-      		int intensity = scan.data[i].intensity;
-
-          }
-
-        }
-```
 
 ### Simple Usage
 
@@ -192,28 +168,28 @@ int main(int argc, char **argv) {
 	if (argc > 1) {
         lidarIp = argv[1];
     }
-    
+    int m_port = 9000;
     ydlidar::init(argc, argv);
 
-
-    std::cout <<"SDK Version: "<< SDK_VERSION <<std::endl;
-    std::cout <<"LIDAR Version: "<< EHLIDAR_VERSION <<std::endl;
-   try {
-
-        ydlidar::LIDAR etlidar(lidarIp);
-        etlidar.RegisterLIDARDataCallback(&LaserScanCallback);
-        while (ydlidar::ok()) {
-            std::this_thread::sleep_for (std::chrono::milliseconds(50));
-        }
-
-    }catch(ydlidar::DeviceException& e) {
-        std::cout << e.what()<< std::endl;
-    }catch(...) {
-        std::cout <<"Unkown error" << std::endl;
-    }
-    
-    
-return 0;
+     ydlidar::ETLidarDriver lidar;
+     result_t ans = lidar.connect(lidarIp, m_port);
+     if(!IS_OK(ans)) {
+     	ydlidar::console.error("Failed to connecting lidar...");
+     	return 0;
+     }
+     
+     result_t rs = lidar.startScan();
+     while (IS_OK(rs) && ydlidar::ok()) {
+    	lidarData scan;
+    	ans = lidar.grabScanData(scan);
+    	if(IS_OK(ans)) {
+      		ydlidar::console.message("scan recevied[%llu]: %d ranges",scan.system_timestamp, scan.data.size());
+    	} else {
+      		ydlidar::console.warning("Failed to get scan data");
+    	}
+     }
+    lidar.disconnect();
+    return 0;
     
 }
 ```
