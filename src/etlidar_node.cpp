@@ -112,6 +112,9 @@ int main(int argc, char *argv[]) {
     return 0;
   }
   result_t rs = lidar.startScan();
+  if(IS_OK(rs)) {
+    ROS_INFO("[YDLIDAR INFO] Now ETLIDAR is Scanning....");
+  }
   while (IS_OK(rs) && ros::ok()) {
     lidarData scan;
     ans = lidar.grabScanData(scan);
