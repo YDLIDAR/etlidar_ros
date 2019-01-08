@@ -18,10 +18,17 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s")
 add_subdirectory(samples)
 add_library(etlidar_driver SHARED ${SDK_SRC})
+add_library(etlidar_driver_static STATIC ${SDK_SRC})
+
+SET_TARGET_PROPERTIES(etlidar_driver_static PROPERTIES OUTPUT_NAME "etlidar_driver")
+SET_TARGET_PROPERTIES(etlidar_driver PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+SET_TARGET_PROPERTIES(etlidar_driver_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 IF (WIN32)
 target_link_libraries(etlidar_driver ws2_32)
+target_link_libraries(etlidar_driver_static ws2_32)
 ELSE()
 target_link_libraries(etlidar_driver rt pthread)
+target_link_libraries(etlidar_driver_static ws2_32)
 ENDIF()                    
 
 ########################################################

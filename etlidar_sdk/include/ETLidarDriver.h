@@ -28,11 +28,11 @@
 #pragma once
 
 /* Header file to enable threading and ergo callback */
+#include "PassiveSocket.h"
+#include "SimpleSocket.h"
 #include "thread.h"
 #include "locker.h"
 #include "etlidar_protocol.h"
-#include "PassiveSocket.h"
-#include "SimpleSocket.h"
 #include <vector>
 /* Header files for socket variable */
 #include "DeviceException.h"
