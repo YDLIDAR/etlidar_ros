@@ -59,6 +59,9 @@ int main(int argc, char *argv[]) {
   double angle_max = 150, angle_min = -150;
   double max_range = 64, min_range = 0.035;
   std::vector<float> ignore_array;
+  bool resolution_fixed;
+  int fix_size = 833;
+  double fix_angle = 0.36;
  
 
   ros::NodeHandle nh;
@@ -67,6 +70,7 @@ int main(int argc, char *argv[]) {
   nh_private.param<std::string>("ip", ip, "192.168.0.11");
   nh_private.param<int>("port", port, 9000);
   nh_private.param<std::string>("frame_id", frame_id, "laser_frame");
+  nh_private.param<bool>("resolution_fixed", resolution_fixed, "true");
   nh_private.param<double>("angle_max", angle_max, 150);
   nh_private.param<double>("angle_min", angle_min, -150);
   nh_private.param<double>("range_max", max_range, 64.0);
@@ -113,11 +117,16 @@ int main(int argc, char *argv[]) {
     ans = lidar.grabScanData(scan);
     if(IS_OK(ans)) {
       size_t all_nodes_counts = scan.data.size();
+      size_t scan_size = all_nodes_counts;
       double each_angle = FOV*1.0 / (all_nodes_counts - 1);
       ydlidar::lidarData compensate_data;
+      if (resolution_fixed) {
+        all_nodes_counts = fix_size;
+	each_angle = fix_angle;
+      }
       compensate_data.data.resize(all_nodes_counts);
       unsigned int i = 0;
-      for (; i < all_nodes_counts; i++) {
+      for (; i < scan_size; i++) {
         float angle = scan.data[i].angle;
         angle = angle + 180;
         if (angle >= 360) {
