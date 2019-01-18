@@ -53,14 +53,12 @@ int main(int argc, char *argv[]) {
   ros::init(argc, argv, "etlidar_node");
 
   std::string ip;
-  int port = 9000;
   std::string list;
   std::string frame_id = "laser_frame";
   double angle_max = 150, angle_min = -150;
   double max_range = 64, min_range = 0.035;
   std::vector<float> ignore_array;
-  bool resolution_fixed;
-  int fix_size = 833;
+  int fix_size = 834;
   double fix_angle = 0.36;
  
 
@@ -68,9 +66,7 @@ int main(int argc, char *argv[]) {
   ros::Publisher scan_pub = nh.advertise<sensor_msgs::LaserScan>("scan", 1000);
   ros::NodeHandle nh_private("~");
   nh_private.param<std::string>("ip", ip, "192.168.0.11");
-  nh_private.param<int>("port", port, 9000);
   nh_private.param<std::string>("frame_id", frame_id, "laser_frame");
-  nh_private.param<bool>("resolution_fixed", resolution_fixed, "true");
   nh_private.param<double>("angle_max", angle_max, 150);
   nh_private.param<double>("angle_min", angle_min, -150);
   nh_private.param<double>("range_max", max_range, 64.0);
@@ -101,12 +97,13 @@ int main(int argc, char *argv[]) {
   if(angle_min < -150) {
     angle_min = -150;
   }
+  fix_size = (angle_max - angle_min)/0.36 + 1;
 
   ros::Rate rate(30);
   ROS_INFO("[YDLIDAR INFO] Now ETLIDAR ROS SDK VERSION:%s", ROSVerision);
 
   ydlidar::ETLidarDriver lidar;
-  result_t ans = lidar.connect(ip, port);
+  result_t ans = lidar.connect(ip);
   if(!IS_OK(ans)) {
     ROS_ERROR("Failed to connecting lidar...");
     return 0;
@@ -119,14 +116,10 @@ int main(int argc, char *argv[]) {
     lidarData scan;
     ans = lidar.grabScanData(scan);
     if(IS_OK(ans)) {
-      size_t all_nodes_counts = scan.data.size();
-      size_t scan_size = all_nodes_counts;
-      double each_angle = FOV*1.0 / (all_nodes_counts - 1);
+      size_t scan_size = scan.data.size();
+      int all_nodes_counts = fix_size;
+      double each_angle = fix_angle;
       ydlidar::lidarData compensate_data;
-      if (resolution_fixed) {
-        all_nodes_counts = fix_size;
-	each_angle = fix_angle;
-      }
       compensate_data.data.resize(all_nodes_counts);
       unsigned int i = 0;
       for (; i < scan_size; i++) {
@@ -161,7 +154,7 @@ int main(int argc, char *argv[]) {
       scan_msg.header.frame_id = frame_id;
       scan_msg.angle_min = DEG2RAD(angle_min);
       scan_msg.angle_max = DEG2RAD(angle_max);
-      scan_msg.angle_increment =(scan_msg.angle_max - scan_msg.angle_min)/(all_nodes_counts - 1);
+      scan_msg.angle_increment = DEG2RAD(fix_size);
       scan_msg.scan_time = scan.scan_time*1.0/1e9;
       scan_msg.time_increment = scan_msg.scan_time/(all_nodes_counts - 1);
       scan_msg.range_min = min_range;
