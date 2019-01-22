@@ -1,4 +1,4 @@
-ETLIDAR ROS PACKAGE V1.0.0
+ETLIDAR ROS PACKAGE V1.0.1
 =====================================================================
 
 ROS node and test application for ETLIDAR
@@ -35,10 +35,6 @@ ip (string, default: 192.168.0.11)
 
     2d tof lidar ip.
 
-port (int, default: 9000)
-
-    lidar tcp port.
-
 frame_id (string, default: laser_frame)
 
     frame ID for the device.
@@ -69,6 +65,9 @@ ignore_array (string, default: "")
 Upgrade Log
 =====================================================================
 
+2018-12-5 version:1.0.1
+
+   1.fix angle resolution error
 
 2018-12-5 version:1.0.0
 

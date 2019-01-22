@@ -1,8 +1,8 @@
 /*
- *  YDLIDAR SYSTEM
- *  YDLIDAR ROS Node Client
+ *  ETLIDAR SYSTEM
+ *  ETLIDAR ROS Node Client
  *
- *  Copyright 2015 - 2018 EAI TEAM
+ *  Copyright 2015 - 2019 EAI TEAM
  *  http://www.ydlidar.com
  *
  */
@@ -25,8 +25,7 @@
 
 using namespace ydlidar;
 
-#define ROSVerision "1.0.0"
-#define FOV 300
+#define ROSVerision "1.0.1"
 
 std::vector<float> split(const std::string &s, char delim) {
   std::vector<float> elems;
@@ -117,7 +116,7 @@ int main(int argc, char *argv[]) {
     ans = lidar.grabScanData(scan);
     if(IS_OK(ans)) {
       size_t scan_size = scan.data.size();
-      int all_nodes_counts = fix_size;
+      int all_nodes_counts = 1000;
       double each_angle = fix_angle;
       ydlidar::lidarData compensate_data;
       compensate_data.data.resize(all_nodes_counts);
@@ -135,17 +134,19 @@ int main(int argc, char *argv[]) {
         if (angle_pre < angle_next) {
           if (inter < all_nodes_counts) {
             compensate_data.data[inter] = scan.data[i];
+            compensate_data.data[inter].angle = inter*each_angle;
           }
         } else {
           if (inter < all_nodes_counts - 1) {
             compensate_data.data[inter + 1] = scan.data[i];
+            compensate_data.data[inter + 1].angle = (inter + 1)*each_angle;
           }
         }
       }
 
-      int counts = all_nodes_counts * ((angle_max - angle_min) /FOV);
-      int angle_start = 150 + angle_min;
-      int node_start = all_nodes_counts * (angle_start*1.0 / FOV);
+      int counts = all_nodes_counts * ((angle_max - angle_min) /360);
+      int angle_start = 180 + angle_min;
+      int node_start = all_nodes_counts * (angle_start*1.0 / 360);
       sensor_msgs::LaserScan scan_msg;
       ros::Time start_scan_time;
       start_scan_time.sec = scan.system_timestamp / 1000000000ul;
@@ -154,7 +155,7 @@ int main(int argc, char *argv[]) {
       scan_msg.header.frame_id = frame_id;
       scan_msg.angle_min = DEG2RAD(angle_min);
       scan_msg.angle_max = DEG2RAD(angle_max);
-      scan_msg.angle_increment = DEG2RAD(fix_size);
+      scan_msg.angle_increment = DEG2RAD(fix_angle);
       scan_msg.scan_time = scan.scan_time*1.0/1e9;
       scan_msg.time_increment = scan_msg.scan_time/(all_nodes_counts - 1);
       scan_msg.range_min = min_range;
@@ -171,6 +172,16 @@ int main(int argc, char *argv[]) {
         } else {
           index = all_nodes_counts - 1 - (i - all_nodes_counts / 2);
         }
+        if (ignore_array.size() != 0) {
+          float angle = index*each_angle - 180;
+          for (uint16_t j = 0; j < ignore_array.size(); j = j + 2) {
+            if ((ignore_array[j] < angle) && (angle <= ignore_array[j + 1])) {
+              range = 0.0;
+              break;
+            }
+          }
+        }
+
         if (range > max_range || range < min_range) {
           range = 0.0;
         }
