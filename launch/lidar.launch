@@ -1,11 +1,13 @@
 <launch>
   <node name="etlidar_node"  pkg="etlidar_ros"  type="etlidar_node" output="screen" respawn="false" >
     <param name="ip"         type="string" value="192.168.0.11"/>  
+    <param name="port"         type="int" value="8000"/>  
     <param name="frame_id"     type="string" value="laser_frame"/>
     <param name="angle_min"    type="double" value="-150" />
     <param name="angle_max"    type="double" value="150" />
     <param name="range_min"    type="double" value="0.035" />
     <param name="range_max"    type="double" value="64.0" />
+    <param name="scan_frequency" type="int" value="20"/>  
     <param name="ignore_array" type="string" value="" />
   </node>
   <node pkg="tf" type="static_transform_publisher" name="base_link_to_laser4"

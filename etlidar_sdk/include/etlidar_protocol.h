@@ -4,11 +4,11 @@
 
 #if defined(_WIN32)
 #if defined(ETLidar_STATIC)
-    #define ETLidar_EXPORT
+#define ETLidar_EXPORT
 #elif defined(ETLidar_EXPORTS)
-    #define ETLidar_EXPORT __declspec(dllexport)
+#define ETLidar_EXPORT __declspec(dllexport)
 #else
-    #define ETLidar_EXPORT __declspec(dllimport)
+#define ETLidar_EXPORT __declspec(dllimport)
 #endif
 
 #else
@@ -54,19 +54,19 @@ namespace ydlidar {
 
 
 typedef struct _dataFrame {
-    uint16_t frameHead;
-    uint8_t deviceType;
-    uint8_t frameType;
-    uint8_t dataIndex;
-    uint8_t frameIndex;
-    uint32_t timestamp;
-    uint8_t headFrameFlag;
-    uint8_t dataFormat;
-    uint8_t disScale;
-    uint32_t startAngle;
-    uint32_t dataNum;
-    uint32_t frameCrc;
-    char frameBuf[2048];
+  uint16_t frameHead;
+  uint8_t deviceType;
+  uint8_t frameType;
+  uint8_t dataIndex;
+  uint8_t frameIndex;
+  uint32_t timestamp;
+  uint8_t headFrameFlag;
+  uint8_t dataFormat;
+  uint8_t disScale;
+  uint32_t startAngle;
+  uint32_t dataNum;
+  uint32_t frameCrc;
+  char frameBuf[2048];
 } dataFrame;
 
 /**
@@ -76,65 +76,67 @@ typedef struct _dataFrame {
  * @author jzhang
  */
 typedef struct _lidarConfig {
-    /**
-     * @brief Scanning enable.
-     */
-    int laser_en;
+  /**
+   * @brief Scanning enable.
+   */
+  int laser_en;
 
-    /**
-     * @brief rotate enable.
-     */
-    int motor_en;
+  /**
+   * @brief rotate enable.
+   */
+  int motor_en;
 
-    /**
-     * @brief motor RPM.
-     */
-    int motor_rpm;
+  /**
+   * @brief motor RPM.
+   */
+  int motor_rpm;
 
-    /**
-     * @brief start FOV angle.
-     */
-    int fov_start;
+  /**
+   * @brief start FOV angle.
+   */
+  int fov_start;
 
-    /**
-     * @brief end FOV angle.
-     */
-    int fov_end;
+  /**
+   * @brief end FOV angle.
+   */
+  int fov_end;
 
-    /**
-     * @brief data receive interface, USB or Ethernet.
-     */
-    int trans_sel;
+  /**
+   * @brief data receive interface, USB or Ethernet.
+   */
+  int trans_sel;
 
-    /**
-     * @brief data receive IP.
-     */
-    char dataRecvIp[16];
+  /**
+   * @brief data receive IP.
+   */
+  char dataRecvIp[16];
 
-    /**
-     * @brief data receive PORT.
-     */
-    int dataRecvPort;
+  /**
+   * @brief data receive PORT.
+   */
+  int dataRecvPort;
 
-    /**
-     * @brief device network config, HDCP or Manual.
-     */
-    int dhcp_en;
+  /**
+   * @brief device network config, HDCP or Manual.
+   */
+  int dhcp_en;
 
-    /**
-     * @brief device IP.
-     */
-    char deviceIp[16];
+  /**
+   * @brief device IP.
+   */
+  char deviceIp[16];
 
-    /**
-     * @brief device netmask.
-     */
-    char deviceNetmask[16];
+  /**
+   * @brief device netmask.
+   */
+  char deviceNetmask[16];
 
-    /**
-     * @brief device gateway ip.
-     */
-    char deviceGatewayIp[16];
+  /**
+   * @brief device gateway ip.
+   */
+  char deviceGatewayIp[16];
+
+  int laserScanFrequency;
 } lidarConfig;
 
 
@@ -146,19 +148,19 @@ typedef struct _lidarConfig {
  * @author Tony.Yang
  */
 typedef struct _lidarPot {
-    /**
-     * @brief range
-     */
-    float range;
-    /**
-     * @brief angle
-     */
-    float angle;
-    /**
-     * @brief intensity
-     */
-    int   intensity;
-}lidarPot;
+  /**
+   * @brief range
+   */
+  float range;
+  /**
+   * @brief angle
+   */
+  float angle;
+  /**
+   * @brief intensity
+   */
+  int   intensity;
+} lidarPot;
 
 /**
  * @class lidarData
@@ -168,30 +170,30 @@ typedef struct _lidarPot {
  */
 typedef struct _lidarData {
 
-    /**
-     * @brief ranges.
-     */
-    std::vector<lidarPot> data;
+  /**
+   * @brief ranges.
+   */
+  std::vector<lidarPot> data;
 
-    /**
-     * @brief headFrameFlag.
-     */
-    int headFrameFlag;
+  /**
+   * @brief headFrameFlag.
+   */
+  int headFrameFlag;
 
-    /**
-     * @brief frame timestamp in nanoseconds.
-     */
-    uint64_t self_timestamp;
+  /**
+   * @brief frame timestamp in nanoseconds.
+   */
+  uint64_t self_timestamp;
 
-    /**
-     * @brief system time.
-     */
-    uint64_t system_timestamp;
+  /**
+   * @brief system time.
+   */
+  uint64_t system_timestamp;
 
-    /**
-     * @brief scan_time
-     */
-    uint64_t scan_time;
+  /**
+   * @brief scan_time
+   */
+  uint64_t scan_time;
 
 } lidarData;
 

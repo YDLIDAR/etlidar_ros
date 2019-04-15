@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
 project( etlidar_driver )
 set(LIDAR_VERSION_MAJOR 1)
-set(LIDAR_VERSION_MINOR 0)
+set(LIDAR_VERSION_MINOR 1)
 set(LIDAR_VERSION ${LIDAR_VERSION_MAJOR}.${LIDAR_VERSION_MINOR})
-set( SDK_VERSION 1.0 )
+set( SDK_VERSION 1.1 )
 #add_definitions(-std=c++11) # Use C++11
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 include_directories(include)

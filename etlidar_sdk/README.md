@@ -14,7 +14,7 @@ Release Notes
 -------------------------------------------------------------------------------------------------------------------------------------------------------
 | Title      |  Version |  Data |
 | :-------- | --------:|  :--: |
-| SDK     |  1.0.0 |   2018-8-14  |
+| SDK     |  1.0.1 |   2019-04-13  |
 
 How to build ETLIDAR SDK samples
 -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -62,17 +62,21 @@ How to run ETLIDAR SDK samples
 linux:
 
     $ ./ydlidar_test
-    Please enter the lidar IP:192.168.0.11
-    Please enter the lidar port:9000
-    [YDLidar]: SDK Version: 1.0
-    [YDLidar]: LIDAR Version: 
+    Please enter the lidar IP[192.168.0.11](yes):yse
+    [YDLidar]: SDK Version: 1.1
+    [YDLidar]: LIDAR Version: 1.1
+    [YDLidar]: Opening scan and checking whether Lidar is abnormal.........
+    [YDLidar]: [YDLIDAR INFO] Now YDLIDAR is scanning ......
+
 windows:
 
     $ ydlidar_test.exe
-    Please enter the lidar IP:192.168.0.11
-    Please enter the lidar port:9000
-    [YDLidar]: SDK Version: 1.0
-    [YDLidar]: LIDAR Version: 
+    Please enter the lidar IP[192.168.0.11](yes):yse
+    [YDLidar]: SDK Version: 1.1
+    [YDLidar]: LIDAR Version: 1.1
+    [YDLidar]: Opening scan and checking whether Lidar is abnormal.........
+    [YDLidar]: [YDLIDAR INFO] Now YDLIDAR is scanning ......
+
 
 Data structure
 -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -168,18 +172,17 @@ int main(int argc, char **argv) {
 	if (argc > 1) {
         lidarIp = argv[1];
     }
-    int m_port = 9000;
     ydlidar::init(argc, argv);
 
      ydlidar::ETLidarDriver lidar;
-     result_t ans = lidar.connect(lidarIp, m_port);
+     result_t ans = lidar.connect(lidarIp);
      if(!IS_OK(ans)) {
      	ydlidar::console.error("Failed to connecting lidar...");
      	return 0;
      }
      
-     result_t rs = lidar.startScan();
-     while (IS_OK(rs) && ydlidar::ok()) {
+     bool rs = lidar.turnOn();
+     while (rs && ydlidar::ok()) {
     	lidarData scan;
     	ans = lidar.grabScanData(scan);
     	if(IS_OK(ans)) {
@@ -188,6 +191,7 @@ int main(int argc, char **argv) {
       		ydlidar::console.warning("Failed to get scan data");
     	}
      }
+    lidar.turnOff();
     lidar.disconnect();
     return 0;
     

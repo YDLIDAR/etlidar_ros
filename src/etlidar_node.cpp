@@ -57,19 +57,21 @@ int main(int argc, char *argv[]) {
   double angle_max = 150, angle_min = -150;
   double max_range = 64, min_range = 0.035;
   std::vector<float> ignore_array;
-  int fix_size = 834;
-  double fix_angle = 0.36;
+  int scan_frequency = 20;
+  int port = 8000;
  
 
   ros::NodeHandle nh;
   ros::Publisher scan_pub = nh.advertise<sensor_msgs::LaserScan>("scan", 1000);
   ros::NodeHandle nh_private("~");
   nh_private.param<std::string>("ip", ip, "192.168.0.11");
+  nh_private.param<int>("port", port, 8000);
   nh_private.param<std::string>("frame_id", frame_id, "laser_frame");
   nh_private.param<double>("angle_max", angle_max, 150);
   nh_private.param<double>("angle_min", angle_min, -150);
   nh_private.param<double>("range_max", max_range, 64.0);
   nh_private.param<double>("range_min", min_range, 0.0035);
+  nh_private.param<int>("scan_frequency", scan_frequency, 20);
   nh_private.param<std::string>("ignore_array", list, "");
 
   ignore_array = split(list, ',');
@@ -90,63 +92,72 @@ int main(int argc, char *argv[]) {
     angle_max = angle_min;
     angle_min = temp;
   }
-  if(angle_max > 150) {
-    angle_max = 150;
-  }
-  if(angle_min < -150) {
-    angle_min = -150;
-  }
-  fix_size = (angle_max - angle_min)/0.36 + 1;
 
-  ros::Rate rate(30);
+  if(scan_frequency > 50) {
+    scan_frequency = 50;
+  } else if(scan_frequency < 5) {
+    scan_frequency = 20;
+  }
+
+  ros::Rate rate(scan_frequency);
   ROS_INFO("[YDLIDAR INFO] Now ETLIDAR ROS SDK VERSION:%s", ROSVerision);
 
   ydlidar::ETLidarDriver lidar;
-  result_t ans = lidar.connect(ip);
-  if(!IS_OK(ans)) {
+  lidarConfig config;
+
+  if (!lidar.getScanCfg(config, ip)) {
+    ROS_ERROR("Failed to get lidar config...");
+    return 0;
+  }
+
+  
+  config.dataRecvPort = port;
+  config.motor_rpm = scan_frequency*60;
+  lidar.updateScanCfg(config);
+
+  result_t ans = lidar.connect(ip, config.dataRecvPort);
+
+  if (!IS_OK(ans)) {
     ROS_ERROR("Failed to connecting lidar...");
     return 0;
   }
-  result_t rs = lidar.startScan();
-  if(IS_OK(rs)) {
-    ROS_INFO("[YDLIDAR INFO] Now ETLIDAR is Scanning....");
+
+  config = lidar.getFinishedScanCfg();
+  int m_sampleRate = 1000 / config.laserScanFrequency * 1000;
+
+  int start_angle = config.fov_start;
+  start_angle = (360 - start_angle) + 180;
+  if (start_angle > 180) {
+    start_angle -= 360;
+  }  
+
+  int end_angle = config.fov_end;
+  end_angle = (360 - end_angle) + 180;
+  if (end_angle > 180) {
+    end_angle -= 360;
   }
-  while (IS_OK(rs) && ros::ok()) {
+  if(start_angle > end_angle) {
+    int tmp = end_angle;
+    end_angle = start_angle;
+    start_angle = tmp;
+  }
+  if(angle_max > end_angle) {
+    angle_max = end_angle;
+  }
+
+  if(angle_min < start_angle) {
+    angle_min = start_angle;
+  }
+
+  bool rs = lidar.turnOn();
+  while (rs && ros::ok()) {
     lidarData scan;
     ans = lidar.grabScanData(scan);
     if(IS_OK(ans)) {
       size_t scan_size = scan.data.size();
-      int all_nodes_counts = 1000;
-      double each_angle = fix_angle;
-      ydlidar::lidarData compensate_data;
-      compensate_data.data.resize(all_nodes_counts);
-      unsigned int i = 0;
-      for (; i < scan_size; i++) {
-        float angle = scan.data[i].angle;
-        angle = angle + 180;
-        if (angle >= 360) {
-          angle = angle - 360;
-        }
-        int inter = (int)(angle / each_angle);
-        float angle_pre = angle - inter * each_angle;
-        float angle_next = (inter + 1) * each_angle - angle;
-
-        if (angle_pre < angle_next) {
-          if (inter < all_nodes_counts) {
-            compensate_data.data[inter] = scan.data[i];
-            compensate_data.data[inter].angle = inter*each_angle;
-          }
-        } else {
-          if (inter < all_nodes_counts - 1) {
-            compensate_data.data[inter + 1] = scan.data[i];
-            compensate_data.data[inter + 1].angle = (inter + 1)*each_angle;
-          }
-        }
-      }
-
+      int all_nodes_counts = m_sampleRate/(config.motor_rpm/60);
+      double each_angle = 360.0/all_nodes_counts;
       int counts = all_nodes_counts * ((angle_max - angle_min) /360);
-      int angle_start = 180 + angle_min;
-      int node_start = all_nodes_counts * (angle_start*1.0 / 360);
       sensor_msgs::LaserScan scan_msg;
       ros::Time start_scan_time;
       start_scan_time.sec = scan.system_timestamp / 1000000000ul;
@@ -155,7 +166,7 @@ int main(int argc, char *argv[]) {
       scan_msg.header.frame_id = frame_id;
       scan_msg.angle_min = DEG2RAD(angle_min);
       scan_msg.angle_max = DEG2RAD(angle_max);
-      scan_msg.angle_increment = DEG2RAD(fix_angle);
+      scan_msg.angle_increment = DEG2RAD(each_angle);
       scan_msg.scan_time = scan.scan_time*1.0/1e9;
       scan_msg.time_increment = scan_msg.scan_time/(all_nodes_counts - 1);
       scan_msg.range_min = min_range;
@@ -165,15 +176,17 @@ int main(int argc, char *argv[]) {
       int index = 0;
       float range = 0.0;
       float intensity = 0.0;
-      for (size_t i = 0; i < all_nodes_counts; i++) {
-        range = compensate_data.data[i].range;
-        if (i < all_nodes_counts / 2) {
-          index = all_nodes_counts / 2 - 1 - i;
-        } else {
-          index = all_nodes_counts - 1 - (i - all_nodes_counts / 2);
+
+
+      for (int i = 0; i < scan_size; i++) {
+        float angle = scan.data[i].angle;
+        angle = (360 - angle) + 180;
+        if (angle > 180) {
+          angle -= 360;
         }
+        range = scan.data[i].range;
+        intensity = scan.data[i].intensity;
         if (ignore_array.size() != 0) {
-          float angle = index*each_angle - 180;
           for (uint16_t j = 0; j < ignore_array.size(); j = j + 2) {
             if ((ignore_array[j] < angle) && (angle <= ignore_array[j + 1])) {
               range = 0.0;
@@ -184,17 +197,18 @@ int main(int argc, char *argv[]) {
 
         if (range > max_range || range < min_range) {
           range = 0.0;
+          intensity = 0.0;
         }
-        intensity = compensate_data.data[i].intensity;
-        int pos = index - node_start ;
+        index = int((angle - angle_min) / each_angle + 0.5);
+        if(index>0 && index < counts) {
+          scan_msg.ranges[index] =  range;
+          scan_msg.intensities[index] = intensity;
+        }
 
-        if (0 <= pos && pos < counts) {
-          scan_msg.ranges[pos] =  range;
-          scan_msg.intensities[pos] = intensity;
-        }
+
       }
+
       scan_pub.publish(scan_msg);
-      
     } else {
       ROS_WARN("Failed to get scan data");
     }
@@ -204,6 +218,7 @@ int main(int argc, char *argv[]) {
 
   fprintf(stdout, "disconnecting...\n");
   fflush(stdout);
-	lidar.disconnect();
+  lidar.turnOff();
+  lidar.disconnect();
   return 0;
 }
