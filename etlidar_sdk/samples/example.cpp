@@ -42,7 +42,7 @@
 using namespace ydlidar;
 
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 
   std::string lidarIP;
   std::string port;
@@ -125,5 +125,6 @@ again:
 
   lidar.turnOff();
   lidar.disconnect();
+  ETLidarDriver::WSACleanUp();
   return 0;
 }
