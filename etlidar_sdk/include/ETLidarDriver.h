@@ -80,6 +80,12 @@ class ETLidarDriver {
   * @returns scanCfg structure.
   */
   bool getScanCfg(lidarConfig& config, const std::string& ip_address = "");
+  
+  /**
+  * @brief Get current scan update configuration.
+  * @returns scanCfg structure.
+  */
+  lidarConfig getFinishedScanCfg();
 
   /**
    * @brief updateScanCfg

@@ -343,6 +343,10 @@ bool ETLidarDriver::stopMeasure() {
   return ret;
 }
 
+lidarConfig ETLidarDriver::getFinishedScanCfg() {
+  return m_config;
+}
+
 bool ETLidarDriver::getScanCfg(lidarConfig& config,
                                const std::string& ip_address) {
   bool ret = false;
