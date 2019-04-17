@@ -130,6 +130,7 @@ bool ETLidarDriver::configPortConnect(const char* lidarIP, int tcpPort) {
     return false;
   }
 
+  socket_cmd.SetReceiveTimeout(DEFAULT_TIMEOUT, 0);
   socket_cmd.SetBlocking();
   return socket_cmd.IsSocketValid();
 }
@@ -456,9 +457,11 @@ bool ETLidarDriver::getScanCfg(lidarConfig& config,
     m_sampleRate = 1000 / cfg.laserScanFrequency * 1000;
     ret = true;
   }
-
-  m_config = cfg;
-  config = cfg;
+  if (ret) {
+    m_config = cfg;
+    config = cfg;
+  }
+  
   disConfigConnect();
   return ret;
 }
