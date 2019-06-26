@@ -66,7 +66,7 @@ typedef struct _dataFrame {
   uint32_t startAngle;
   uint32_t dataNum;
   uint32_t frameCrc;
-  char frameBuf[2048];
+  uint8_t frameBuf[2048];
 } dataFrame;
 
 /**
